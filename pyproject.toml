@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cxone-pci-report"
+version = "0.1.0"
+description = "Consolidate Checkmarx One scan results (SAST, SCA, IaC/KICS, API Security) into a customized PCI DSS v4.0.1 compliance PDF report."
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+dependencies = [
+    "checkmarxpythonsdk==1.9.1",
+    "reportlab>=4.4,<6",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3"]
+logo = ["pillow>=11.0"]
+
+[project.scripts]
+cxone-pci-report = "cxone_pci_report.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["cxone_pci_report*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

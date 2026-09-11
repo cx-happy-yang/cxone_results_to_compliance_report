@@ -1,0 +1,45 @@
+{
+  "report": {
+    "title": "PCI DSS v4.0.1 Application Security Gap Assessment",
+    "company_name": "Your Company Ltd.",
+    "auditor": "Application Security Team",
+    "prepared_date": "2026-09-11",
+    "assessment_period": "2026-08-01 to 2026-09-10",
+    "confidentiality": "Confidential",
+    "logo_path": null,
+    "language": "en"
+  },
+  "output": {
+    "pdf_path": "out/pci_dss_v4_0_1_report.pdf"
+  },
+  "filters": {
+    "states": ["TO_VERIFY", "CONFIRMED", "URGENT"],
+    "statuses": ["NEW", "RECURRENT"],
+    "min_severity": "LOW",
+    "dedupe_scope": "project",
+    "sca_include_ignored": false
+  },
+  "projects": [
+    { "name": "my-project-name" },
+    { "id": "00000000-0000-0000-0000-000000000000", "display_name": "Legacy app", "branch": "main" }
+  ],
+  "mapping": {
+    "rules_override_path": null,
+    "default_requirement": "6.3.1",
+    "gap_if_any": ["CRITICAL", "HIGH"],
+    "watch_if_any": ["MEDIUM"],
+    "max_findings_per_requirement": 100
+  },
+  "appearance": {
+    "primary_color": "#1F3B73",
+    "accent_color": "#C8102E",
+    "table_alt_row": "#F2F5FA",
+    "gap_color": "#C0392B",
+    "watch_color": "#E67E22",
+    "ok_color": "#27AE60"
+  },
+  "api": {
+    "page_size": 100,
+    "include_summary": false
+  }
+}
