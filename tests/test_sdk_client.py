@@ -1,6 +1,8 @@
 """Unit tests for the SDK access layer (no network: internal SDK functions
 are replaced with fakes)."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from cxone_pci_report.config import ApiConfigSection, ReportConfig
@@ -29,8 +31,21 @@ class FakeRiskResp:
 
 
 class FakeSca:
+    """Stands in for ScaAPI: exposes api_client + the legacy method."""
+
     def __init__(self, vulns):
         self.vulns = vulns
+        self.called_urls = []
+        self.api_client = SimpleNamespace(
+            configuration=SimpleNamespace(
+                server_base_url="https://fake.ast.checkmarx.net"
+            ),
+            call_api=self._call_api,
+        )
+
+    def _call_api(self, method, url):
+        self.called_urls.append((method, url))
+        return SimpleNamespace(json=lambda: self.vulns)
 
     def get_vulnerabilities_of_a_scan(self, scan_id):
         return self.vulns
@@ -47,9 +62,11 @@ class FakeSubsetScan:
 def _client(**overrides) -> CxOneClient:
     client = CxOneClient.__new__(CxOneClient)
     client._get_project_id_by_name = lambda name: {"proj": "pid-1"}.get(name)
-    client._get_last_scan_info = lambda project_ids: {
-        pid: FakeSubsetScan() for pid in project_ids
-    }
+
+    def fake_last_scan(project_ids, use_main_branch=False):
+        return {pid: FakeSubsetScan() for pid in project_ids}
+
+    client._get_last_scan_info = fake_last_scan
     client._get_sast_results = lambda scan_id, offset, limit: FakeSastResp(
         [], 0
     )
@@ -113,6 +130,51 @@ def test_resolve_project_id_missing_raises():
         client.resolve_project_id("nope")
 
 
+def test_get_last_scan_passes_use_main_branch():
+    calls = []
+
+    def fake_last_scan(project_ids, use_main_branch):
+        calls.append((project_ids, use_main_branch))
+        return {pid: FakeSubsetScan() for pid in project_ids}
+
+    client = _client(_get_last_scan_info=fake_last_scan)
+    assert client.get_last_scan("pid-1", use_main_branch=True) is not None
+    assert calls == [(["pid-1"], True)]
+
+
+def test_fetch_sca_uses_api_sca_prefixed_url():
+    """Regression: the SDK's Sca.get_vulnerabilities_of_a_scan omits the
+    /api/sca prefix (nginx 400); our fetch must call the correct path."""
+    sca = FakeSca([{"id": "CVE-2020-1111"}])
+    client = _client(_sca=sca)
+    result = client.fetch_sca("scan-1")
+    assert result == [{"id": "CVE-2020-1111"}]
+    method, url = sca.called_urls[0]
+    assert method == "GET"
+    assert url == (
+        "https://fake.ast.checkmarx.net/api/sca/risk-management/"
+        "risk-reports/scan-1/vulnerabilities"
+    )
+
+
+def test_application_helpers():
+    class FakeProject:
+        id = "p-1"
+        name = "proj-a"
+
+    class FakeCollection:
+        projects = [FakeProject()]
+
+    client = _client(
+        _get_application_id_by_name=lambda name: "app-1" if name == "happy" else None,
+        _get_projects_for_application=lambda app_id: FakeCollection(),
+    )
+    assert client.get_application_id_by_name("happy") == "app-1"
+    assert client.get_application_id_by_name("nope") is None
+    projects = client.get_projects_for_application("app-1")
+    assert projects[0].name == "proj-a"
+
+
 def test_resolve_project_id_found():
     client = _client()
     assert client.resolve_project_id("proj") == "pid-1"
@@ -130,7 +192,7 @@ def test_fetch_project_scan_by_name():
     client = _client(
         _get_sast_results=lambda scan_id, offset, limit: FakeSastResp([sast], 1)
     )
-    project, ignored = client.fetch_project_scan(
+    project, ignored, notes = client.fetch_project_scan(
         ProjectConfig(name="proj"), _cfg()
     )
     assert project.project_id == "pid-1"
@@ -146,7 +208,7 @@ def test_fetch_project_scan_with_scan_id_override():
     from cxone_pci_report.config import ProjectConfig
 
     client = _client()
-    project, _ = client.fetch_project_scan(
+    project, _, notes = client.fetch_project_scan(
         ProjectConfig(id="pid-x", scan_id="scan-override"), _cfg()
     )
     assert project.scan_id == "scan-override"
@@ -175,7 +237,7 @@ def test_fetch_project_scan_excludes_ignored_sca():
             ]
         )
     )
-    project, ignored = client.fetch_project_scan(
+    project, ignored, notes = client.fetch_project_scan(
         ProjectConfig(id="pid-x"), _cfg()
     )
     assert ignored == 1

@@ -119,3 +119,29 @@ def test_validate_config_empty_projects():
     cfg = ReportConfig(projects=[])
     errors = validate_config(cfg)
     assert any("projects" in e for e in errors)
+
+
+def test_validate_config_empty_projects_allowed_without_requirement():
+    from cxone_pci_report.config import ReportConfigSection
+
+    cfg = ReportConfig(
+        report=ReportConfigSection(
+            title="t", company_name="c", auditor="a",
+            prepared_date="2026-09-11",
+            assessment_period="2026-08-01 to 2026-09-10",
+        ),
+        projects=[],
+    )
+    assert validate_config(cfg, require_projects=False) == []
+
+
+def test_project_use_main_branch_parsed(tmp_path):
+    raw = _minimal_raw()
+    raw["projects"][0]["use_main_branch"] = True
+    cfg = load_config(_write_config(tmp_path, raw))
+    assert cfg.projects[0].use_main_branch is True
+
+
+def test_project_use_main_branch_defaults_false(tmp_path):
+    cfg = load_config(_write_config(tmp_path, _minimal_raw()))
+    assert cfg.projects[0].use_main_branch is False

@@ -50,6 +50,7 @@ class ProjectConfig:
     display_name: str | None = None
     branch: str | None = None
     scan_id: str | None = None
+    use_main_branch: bool = False
 
 
 @dataclass
@@ -114,8 +115,16 @@ def _section_keys() -> dict[str, set[str]]:
     }
 
 
-def load_config(path: str | Path) -> ReportConfig:
-    """Load and validate a report config JSON file (strict on unknown keys)."""
+def load_config(
+    path: str | Path,
+    *,
+    require_projects: bool = True,
+) -> ReportConfig:
+    """Load and validate a report config JSON file (strict on unknown keys).
+
+    ``require_projects=False`` allows an empty ``projects`` section when the
+    CLI supplies project scope from another source (``--application``).
+    """
     path = Path(path)
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -161,7 +170,10 @@ def load_config(path: str | Path) -> ReportConfig:
         if not isinstance(proj, dict):
             errors.append(f"projects[{i}] must be an object.")
             continue
-        unknown = set(proj) - {"name", "id", "display_name", "branch", "scan_id"}
+        unknown = set(proj) - {
+            "name", "id", "display_name", "branch", "scan_id",
+            "use_main_branch",
+        }
         if unknown:
             errors.append(f"Unknown key(s) in projects[{i}]: {sorted(unknown)}.")
         cfg.projects.append(
@@ -171,16 +183,21 @@ def load_config(path: str | Path) -> ReportConfig:
                 display_name=proj.get("display_name"),
                 branch=proj.get("branch"),
                 scan_id=proj.get("scan_id"),
+                use_main_branch=bool(proj.get("use_main_branch", False)),
             )
         )
 
-    errors.extend(validate_config(cfg))
+    errors.extend(validate_config(cfg, require_projects=require_projects))
     if errors:
         raise ConfigError("\n".join(f"- {e}" for e in errors))
     return cfg
 
 
-def validate_config(cfg: ReportConfig) -> list[str]:
+def validate_config(
+    cfg: ReportConfig,
+    *,
+    require_projects: bool = True,
+) -> list[str]:
     """Return a list of human-readable validation errors (empty = valid)."""
     errors: list[str] = []
     report = cfg.report
@@ -203,7 +220,7 @@ def validate_config(cfg: ReportConfig) -> list[str]:
     if report.logo_path and not Path(report.logo_path).is_file():
         errors.append(f"report.logo_path does not exist: {report.logo_path}")
 
-    if not cfg.projects:
+    if not cfg.projects and require_projects:
         errors.append("At least one entry in 'projects' is required.")
     for i, proj in enumerate(cfg.projects):
         has_name = bool(proj.name)

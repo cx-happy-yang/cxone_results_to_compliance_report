@@ -367,7 +367,7 @@ def _executive_summary(data, cfg, styles, theme) -> list:
             header,
             rows,
             styles,
-            col_widths=[None] + [16 * mm] * len(SEVERITY_ORDER) + [15 * mm],
+            col_widths=[None] + [17 * mm] * len(SEVERITY_ORDER) + [15 * mm],
         )
     )
 
@@ -386,7 +386,7 @@ def _executive_summary(data, cfg, styles, theme) -> list:
             matrix_header,
             matrix_rows,
             styles,
-            col_widths=[30 * mm] + [16 * mm] * len(SEVERITY_ORDER) + [15 * mm],
+            col_widths=[30 * mm] + [17 * mm] * len(SEVERITY_ORDER) + [15 * mm],
         )
     )
     flowables.append(Spacer(1, 3 * mm))
@@ -448,6 +448,40 @@ def _methodology(data, cfg, styles, theme) -> list:
             styles,
             col_widths=[30 * mm, 42 * mm, 34 * mm, 18 * mm, 42 * mm, 22 * mm],
             small=True,
+        ),
+        *(
+            [
+                Paragraph("2.1.1 Projects excluded from scope", styles.h3),
+                Paragraph(
+                    "The following projects were requested but have no scan "
+                    "matching the scope (for example, no scan on the "
+                    "configured main branch):",
+                    styles.small,
+                ),
+                plain_table(
+                    ["Project", "Reason"],
+                    [
+                        [entry["project"], entry["reason"]]
+                        for entry in data.skipped_projects
+                    ],
+                    styles,
+                    col_widths=[60 * mm, 110 * mm],
+                    small=True,
+                ),
+            ]
+            if data.skipped_projects
+            else []
+        ),
+        *(
+            [
+                Paragraph("2.1.2 Data completeness notes", styles.h3),
+                *[
+                    Paragraph(f"• {escape(note)}", styles.small)
+                    for note in data.data_notes
+                ],
+            ]
+            if data.data_notes
+            else []
         ),
         Paragraph("2.2 Filters applied", styles.h2),
         plain_table(

@@ -33,6 +33,8 @@ class ReportData:
     filtered_out: dict[str, int]
     top_findings: list[Finding]
     summary_crosscheck: dict | None = None
+    skipped_projects: list[dict] = field(default_factory=list)
+    data_notes: list[str] = field(default_factory=list)
 
 
 def _empty_counts() -> dict[Severity, int]:
@@ -66,6 +68,8 @@ def build_report_data(
     *,
     filtered_out: dict[str, int] | None = None,
     summary_crosscheck: dict | None = None,
+    skipped_projects: list[dict] | None = None,
+    data_notes: list[str] | None = None,
 ) -> ReportData:
     all_findings: list[Finding] = []
     for project in projects:
@@ -149,4 +153,6 @@ def build_report_data(
         filtered_out=filtered_out or {},
         top_findings=top_findings,
         summary_crosscheck=summary_crosscheck,
+        skipped_projects=skipped_projects or [],
+        data_notes=data_notes or [],
     )

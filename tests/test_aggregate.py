@@ -134,3 +134,16 @@ def test_scan_table_and_totals():
     assert data.totals["kept"] == 1
     assert data.totals["projects"] == 1
     assert data.filtered_out["by_state"] == 3
+
+
+def test_skipped_projects_passthrough():
+    skipped = [{"project": "empty-proj", "reason": "No scan found"}]
+    data = build_report_data(
+        [_project()], ReportConfig(), skipped_projects=skipped
+    )
+    assert data.skipped_projects == skipped
+
+
+def test_skipped_projects_default_empty():
+    data = build_report_data([_project()], ReportConfig())
+    assert data.skipped_projects == []
