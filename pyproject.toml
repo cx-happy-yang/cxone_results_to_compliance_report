@@ -15,11 +15,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8.3"]
+test = ["pytest>=8.3", "mcp>=2"]
 logo = ["pillow>=11.0"]
+mcp = ["mcp>=2"]
 
 [project.scripts]
 cxone-pci-report = "cxone_pci_report.cli:main"
+cxone-pci-report-mcp = "cxone_pci_report.mcp_server:main"
 
 [tool.setuptools.packages.find]
 include = ["cxone_pci_report*"]

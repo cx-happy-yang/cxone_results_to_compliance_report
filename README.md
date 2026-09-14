@@ -120,6 +120,55 @@ annotated example. Highlights:
   `description_regex`.
 - `appearance`: primary/accent/table colors plus indicator colors.
 
+## Copilot integration (MCP server)
+
+The package ships an MCP server exposing the report pipeline as tools that
+GitHub Copilot (VS Code, Copilot CLI, github.com chat) and other MCP
+clients can call — Copilot invokes the real pipeline instead of
+reimplementing the PDF logic.
+
+Install the extra:
+
+```powershell
+.venv\Scripts\pip install -e ".[mcp]"
+```
+
+Local use (stdio server; credentials come from your normal SDK config):
+
+```powershell
+.venv\Scripts\cxone-pci-report-mcp
+```
+
+Point your client at it, e.g. VS Code `.vscode/mcp.json`:
+
+```json
+{"servers": {"cxone-pci-report": {"type": "stdio",
+    "command": ".venv\\Scripts\\cxone-pci-report-mcp"}}}
+```
+
+Remote use (Copilot Chat on github.com / cloud agent) — host it behind
+your own auth (OAuth or token) since the endpoint writes PDFs and proxies
+CxOne API calls:
+
+```powershell
+.venv\Scripts\cxone-pci-report-mcp --http --host 0.0.0.0 --port 8000
+```
+
+Set `PCI_REPORT_BASE_URL` (e.g. `https://reports.example.com/pdf`) so the
+tools return a download URL instead of a server-local path.
+
+Tools:
+
+- `generate_pci_report` — real run from a config object (schema:
+  `report_config.example.json`). Credentials are never part of the config;
+  the server host's SDK configuration is used.
+- `generate_demo_report` — offline demo PDF from synthetic data.
+- `validate_report_config` — validate a config object without fetching.
+
+For developers using Copilot in this repo itself, `AGENTS.md`,
+`.github/copilot-instructions.md` and the `pci-report` custom agent
+(`.github/agents/pci-report.md`) teach Copilot to run the CLI directly.
+
 ## Development
 
 ```powershell
