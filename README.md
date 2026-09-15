@@ -28,7 +28,9 @@ the authoritative source.
   auto-generated table of contents, executive summary with charts,
   methodology (scan inventory + filters), per-requirement mapping with
   GAPS IDENTIFIED / WATCH / NO FINDINGS indicators, detailed findings
-  appendix, and a tool-information page.
+  appendix, and a tool-information page. The Checkmarx corporate logo is
+  drawn at the top of every page; set `report.logo_path` to show your own
+  logo centered on the cover.
 - `--demo` mode generates a realistic report from bundled synthetic data —
   no API access needed. Great for testing layout changes or showing the
   format to auditors.
@@ -125,28 +127,42 @@ annotated example. Highlights:
 The package ships an MCP server exposing the report pipeline as tools that
 GitHub Copilot (VS Code, Copilot CLI, github.com chat) and other MCP
 clients can call — Copilot invokes the real pipeline instead of
-reimplementing the PDF logic.
+reimplementing the PDF logic. Tools:
 
-Install the extra:
+- `generate_pci_report` — real run from a config object (schema:
+  `report_config.example.json`). Credentials are never part of the config;
+  the server host's SDK configuration is used.
+- `generate_demo_report` — offline demo PDF from synthetic data.
+- `validate_report_config` — validate a config object without fetching.
+
+### Step 1 — Install the MCP server
+
+Install the `mcp` extra into the venv:
 
 ```powershell
+python -m venv .venv
 .venv\Scripts\pip install -e ".[mcp]"
 ```
 
-Local use (stdio server; credentials come from your normal SDK config):
+The server runs with the credentials of the host it runs on, so install it
+on the machine that has your CxOne SDK configuration (see
+[Authentication](#authentication-delegated-to-the-sdk)).
 
-```powershell
-.venv\Scripts\cxone-pci-report-mcp
-```
+### Step 2 — Connect your MCP client
 
-Point your client at it, e.g. VS Code `.vscode/mcp.json`:
+Local use (VS Code Copilot, Copilot CLI) — stdio server; create
+`.vscode/mcp.json` in the workspace:
 
 ```json
 {"servers": {"cxone-pci-report": {"type": "stdio",
     "command": ".venv\\Scripts\\cxone-pci-report-mcp"}}}
 ```
 
-Remote use (Copilot Chat on github.com / cloud agent) — host it behind
+VS Code then shows the `cxone-pci-report` server with its three tools in
+the Copilot chat view; restart the chat window if it does not appear.
+
+Remote use (Copilot Chat on github.com / cloud agent) — run the server
+with the streamable-HTTP transport on a host that can reach CxOne, behind
 your own auth (OAuth or token) since the endpoint writes PDFs and proxies
 CxOne API calls:
 
@@ -154,16 +170,41 @@ CxOne API calls:
 .venv\Scripts\cxone-pci-report-mcp --http --host 0.0.0.0 --port 8000
 ```
 
-Set `PCI_REPORT_BASE_URL` (e.g. `https://reports.example.com/pdf`) so the
-tools return a download URL instead of a server-local path.
+The org admin adds it to the org's MCP servers in Copilot Chat
+(Copilot Business/Enterprise must have the MCP servers policy enabled),
+pointing at the URL above (default path `/mcp`). Set `PCI_REPORT_BASE_URL`
+(e.g. `https://reports.example.com/pdf`) on the server so the tools return
+a download URL instead of a server-local path.
 
-Tools:
+### Step 3 — Generate the PDF report from Copilot
 
-- `generate_pci_report` — real run from a config object (schema:
-  `report_config.example.json`). Credentials are never part of the config;
-  the server host's SDK configuration is used.
-- `generate_demo_report` — offline demo PDF from synthetic data.
-- `validate_report_config` — validate a config object without fetching.
+1. **Demo first** — ask for a report from synthetic data to confirm the
+   format, e.g.:
+
+   > Generate the demo PCI report.
+
+   Copilot calls `generate_demo_report`; the PDF lands at
+   `out/demo_report.pdf` next to where the server runs (or at the URL from
+   `PCI_REPORT_BASE_URL`).
+
+2. **Validate your config** — paste your real config (same schema as
+   `report_config.example.json`, minus `output` if you want the default
+   path):
+
+   > Validate this config: { ... }
+
+   `validate_report_config` checks it without fetching anything. Note that
+   `logo_path` / `rules_override_path` in the config resolve **on the
+   server host**.
+
+3. **Live run** — ask Copilot to generate the report with the same config:
+
+   > Generate the PCI report with this config: { ... }
+
+   Copilot calls `generate_pci_report`, which pulls your Checkmarx One
+   scans and writes the PDF to the config's `output.pdf_path` on the
+   server host (or to the `output` argument you give Copilot). The reply
+   includes the path or download URL of the finished report.
 
 For developers using Copilot in this repo itself, `AGENTS.md`,
 `.github/copilot-instructions.md` and the `pci-report` custom agent

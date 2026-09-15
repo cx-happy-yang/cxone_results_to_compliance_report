@@ -8,6 +8,7 @@ from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     BaseDocTemplate,
@@ -40,6 +41,43 @@ from .styles import FRAME_H, FRAME_W, MARGIN, PAGE_H, PAGE_W, Styles
 from .theme import build_theme
 
 log = logging.getLogger(__name__)
+
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+
+
+def _logo_asset(primary) -> str | None:
+    """Checkmarx corporate logo for the page header.
+
+    The bundled white variant is used on dark header bands, the dark
+    variant on light bands. Returns a filesystem path, or None when the
+    asset is missing (e.g. built from a source tree without package data).
+    """
+    name = "corporate-logo-dark.png" if _is_light_color(primary) \
+        else "corporate-logo.png"
+    path = _ASSETS_DIR / name
+    if path.is_file():
+        return str(path)
+    log.warning("Header logo asset not found: %s", path)
+    return None
+
+
+def _is_light_color(color) -> bool:
+    """Relative luminance in [0, 1]; > 0.55 means a light band color."""
+    lum = 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue
+    return lum > 0.55
+
+
+def _draw_header_logo(canv, logo_path: str, *, band_top, band_h, logo_h) -> float:
+    """Draw the logo vertically centered in a band; return its width."""
+    img_w, img_h = ImageReader(logo_path).getSize()
+    logo_w = logo_h * (img_w / img_h)
+    canv.drawImage(
+        logo_path,
+        MARGIN, band_top + (band_h - logo_h) / 2,
+        logo_w, logo_h,
+        preserveAspectRatio=True, mask="auto",
+    )
+    return logo_w
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -111,23 +149,40 @@ class _PciDocTemplate(BaseDocTemplate):
                 )
 
 
-def _draw_cover_background(canv: canvas.Canvas, doc, primary, accent):
-    canv.saveState()
-    canv.setFillColor(primary)
-    canv.rect(0, PAGE_H - 28 * mm, PAGE_W, 28 * mm, stroke=0, fill=1)
-    canv.setFillColor(accent)
-    canv.rect(0, 0, PAGE_W, 12 * mm, stroke=0, fill=1)
-    canv.restoreState()
-
-
-def _draw_body_background(canv: canvas.Canvas, doc, primary, title):
+def _draw_page_header(canv: canvas.Canvas, primary, title, logo_path):
+    """Identical header band on every page: logo left, title right."""
     canv.saveState()
     canv.setFillColor(primary)
     canv.rect(0, PAGE_H - 10 * mm, PAGE_W, 10 * mm, stroke=0, fill=1)
     canv.setFillColor(colors.white)
     canv.setFont("Helvetica-Bold", 8)
-    canv.drawString(MARGIN, PAGE_H - 7 * mm, title[:90])
+    if logo_path:
+        logo_w = _draw_header_logo(
+            canv, logo_path,
+            band_top=PAGE_H - 10 * mm, band_h=10 * mm, logo_h=6 * mm,
+        )
+        # Title right-aligned in the space left of the logo; keep a small
+        # gap so a long title never overlaps it.
+        max_chars = max(20, int(((PAGE_W - 2 * MARGIN) - logo_w - 4 * mm)
+                                 / (1.6 * mm)))
+        canv.drawRightString(PAGE_W - MARGIN, PAGE_H - 7 * mm, title[:max_chars])
+    else:
+        canv.drawString(MARGIN, PAGE_H - 7 * mm, title[:90])
     canv.restoreState()
+
+
+def _draw_cover_background(canv: canvas.Canvas, doc, primary, accent, title,
+                           logo_path=None):
+    """Cover page: same header as every other page, plus the accent footer."""
+    _draw_page_header(canv, primary, title, logo_path)
+    canv.saveState()
+    canv.setFillColor(accent)
+    canv.rect(0, 0, PAGE_W, 12 * mm, stroke=0, fill=1)
+    canv.restoreState()
+
+
+def _draw_body_background(canv: canvas.Canvas, doc, primary, title, logo_path=None):
+    _draw_page_header(canv, primary, title, logo_path)
 
 
 def build_pdf(
@@ -143,6 +198,8 @@ def build_pdf(
     styles = Styles(theme)
     for style in (styles.h1, styles.h2, styles.h3):
         style.keepWithNext = True
+
+    header_logo = _logo_asset(theme.primary)
 
     footer_left = f"{TOOL_NAME} v{__version__}"
     footer_right = cfg.report.confidentiality
@@ -169,14 +226,15 @@ def build_pdf(
                 id="cover",
                 frames=[frame_cover],
                 onPage=lambda c, d: _draw_cover_background(
-                    c, d, theme.primary, theme.accent
+                    c, d, theme.primary, theme.accent,
+                    cfg.report.title, header_logo,
                 ),
             ),
             PageTemplate(
                 id="body",
                 frames=[frame_body],
                 onPage=lambda c, d: _draw_body_background(
-                    c, d, theme.primary, cfg.report.title
+                    c, d, theme.primary, cfg.report.title, header_logo
                 ),
             ),
         ]

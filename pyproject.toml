@@ -28,3 +28,6 @@ include = ["cxone_pci_report*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+"cxone_pci_report" = ["assets/*.png"]

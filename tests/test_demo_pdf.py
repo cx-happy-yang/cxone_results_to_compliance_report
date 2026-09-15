@@ -19,3 +19,7 @@ def test_demo_pipeline_builds_pdf(tmp_path):
     page_markers = raw.count(b"/Type /Page")
     assert page_markers > 15
     assert b"PCI DSS" in raw or b"PCI" in raw
+
+    # The Checkmarx header logo is embedded as a raster image (charts are
+    # vector drawings, so this is the logo on the page headers).
+    assert b"/Subtype /Image" in raw
