@@ -145,3 +145,24 @@ def test_project_use_main_branch_parsed(tmp_path):
 def test_project_use_main_branch_defaults_false(tmp_path):
     cfg = load_config(_write_config(tmp_path, _minimal_raw()))
     assert cfg.projects[0].use_main_branch is False
+
+
+def test_subtitle_default(tmp_path):
+    cfg = load_config(_write_config(tmp_path, _minimal_raw()))
+    assert cfg.report.subtitle == (
+        "Supporting Evidence for PCI DSS v4.0.1 (Requirements 6 & 11)"
+    )
+
+
+def test_subtitle_override(tmp_path):
+    raw = _minimal_raw()
+    raw["report"]["subtitle"] = "Evidence Pack for PCI DSS v4.0.1"
+    cfg = load_config(_write_config(tmp_path, raw))
+    assert cfg.report.subtitle == "Evidence Pack for PCI DSS v4.0.1"
+
+
+def test_subtitle_empty_rejected(tmp_path):
+    raw = _minimal_raw()
+    raw["report"]["subtitle"] = ""
+    with pytest.raises(ConfigError, match="subtitle"):
+        load_config(_write_config(tmp_path, raw))

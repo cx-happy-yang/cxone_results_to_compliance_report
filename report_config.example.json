@@ -1,6 +1,7 @@
 {
   "report": {
-    "title": "PCI DSS v4.0.1 Application Security Gap Assessment",
+    "title": "Application Security Assessment Report",
+    "subtitle": "Supporting Evidence for PCI DSS v4.0.1 (Requirements 6 & 11)",
     "company_name": "Your Company Ltd.",
     "auditor": "Application Security Team",
     "prepared_date": "2026-09-11",

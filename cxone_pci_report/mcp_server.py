@@ -74,14 +74,15 @@ def _result_message(pdf_path: str, *, demo: bool, project_count: int) -> str:
     kind = "Demo" if demo else "Live"
     scope = f" ({project_count} project(s) in scope)" if project_count else ""
     return (
-        f"{kind} PCI DSS v4.0.1 report generated{scope}: "
-        f"{_public_location(pdf_path)}"
+        f"{kind} PCI DSS v4.0.1 supporting-evidence report generated"
+        f"{scope}: {_public_location(pdf_path)}"
     )
 
 
 def generate_pci_report(config: dict, output: str | None = None) -> str:
-    """Generate a real PCI DSS v4.0.1 compliance PDF from Checkmarx One scan
-    results (SAST, SCA, IaC/KICS, API Security) for the configured projects.
+    """Generate a PCI DSS v4.0.1 supporting-evidence PDF from Checkmarx One
+    scan results (SAST, SCA, IaC/KICS, API Security) for the configured
+    projects.
 
     Args:
         config: Full report configuration object (sections: report, output,
@@ -164,9 +165,10 @@ def create_server():
     server = MCPServer(
         SERVER_NAME,
         instructions=(
-            "You help users generate PCI DSS v4.0.1 compliance PDF reports "
-            "from Checkmarx One scan results. Use the provided tools; never "
-            "reimplement PDF generation yourself. Suggest "
+            "You help users generate PCI DSS v4.0.1 supporting-evidence PDF "
+            "reports (application security assessments, not compliance "
+            "reports) from Checkmarx One scan results. Use the provided "
+            "tools; never reimplement PDF generation yourself. Suggest "
             "generate_demo_report first so the user can see the report "
             "format, then validate_report_config before a live run. Never "
             "ask for or print CxOne credentials - authentication uses the "

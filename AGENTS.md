@@ -1,8 +1,9 @@
 # AGENTS.md
 
 This repo turns Checkmarx One scan results (SAST, SCA, IaC/KICS, API
-Security) into a PCI DSS v4.0.1 compliance PDF report. Full details in
-[README.md](README.md).
+Security) into an application security assessment PDF that maps findings to
+PCI DSS v4.0.1 requirements as supporting evidence (not a compliance
+report). Full details in [README.md](README.md).
 
 ## Generating a report
 

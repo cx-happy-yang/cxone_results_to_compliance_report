@@ -1,5 +1,6 @@
 from cxone_pci_report.aggregate import (
     GAP_INDICATOR,
+    NOT_COVERED_INDICATOR,
     OK_INDICATOR,
     WATCH_INDICATOR,
     build_report_data,
@@ -109,11 +110,11 @@ def test_sample_findings_sorted_by_severity_then_date():
 
 def test_findings_with_multiple_requirements_count_in_both():
     p = _project(findings=[
-        _finding(reqs=("6.5.1", "6.3.3"), primary="6.5.1"),
+        _finding(reqs=("6.5.1", "6.3.2"), primary="6.5.1"),
     ])
     data = build_report_data([p], ReportConfig())
     assert data.requirement_stats["6.5.1"].total == 1
-    assert data.requirement_stats["6.3.3"].total == 1
+    assert data.requirement_stats["6.3.2"].total == 1
 
 
 def test_top_findings_limited_to_ten():
@@ -147,3 +148,19 @@ def test_skipped_projects_passthrough():
 def test_skipped_projects_default_empty():
     data = build_report_data([_project()], ReportConfig())
     assert data.skipped_projects == []
+
+
+def test_not_covered_requirements():
+    data = build_report_data([_project()], ReportConfig())
+    stats = data.requirement_stats
+    for req_id in ("6.2.2", "6.4.3", "11.3.2", "11.3.3"):
+        stat = stats[req_id]
+        assert stat.indicator == NOT_COVERED_INDICATOR
+        assert stat.covered is False
+        assert stat.total == 0
+    # A covered requirement with no findings keeps the OK indicator.
+    assert stats["6.3.3"].indicator == OK_INDICATOR
+    assert stats["6.3.3"].covered is True
+    assert data.totals["requirements"] == len(PCI_REQUIREMENTS) == 19
+    assert data.totals["covered"] == 15
+    assert data.totals["not_covered"] == 4

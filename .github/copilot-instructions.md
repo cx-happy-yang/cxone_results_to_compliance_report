@@ -1,6 +1,7 @@
 # Copilot instructions
 
-This repository generates PCI DSS v4.0.1 compliance PDF reports from
+This repository generates PCI DSS v4.0.1 supporting-evidence PDF reports
+(application security assessments, not compliance reports) from
 Checkmarx One scan results. When someone asks you to generate, create, or
 update such a report:
 

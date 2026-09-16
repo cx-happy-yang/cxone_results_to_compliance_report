@@ -1,4 +1,4 @@
-"""Assemble the PCI compliance PDF with reportlab."""
+"""Assemble the PCI DSS v4.0.1 supporting-evidence PDF with reportlab."""
 
 import json
 import logging
@@ -25,7 +25,12 @@ from reportlab.platypus import (
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from .. import __version__, TOOL_NAME
-from ..aggregate import ReportData
+from ..aggregate import (
+    GAP_INDICATOR,
+    OK_INDICATOR,
+    ReportData,
+    WATCH_INDICATOR,
+)
 from ..config import ReportConfig
 from ..models import Scanner, Severity, SEVERITY_ORDER
 from ..pci_requirements import PCI_REQUIREMENTS, REQUIREMENT_BY_ID
@@ -36,6 +41,7 @@ from .components import (
     requirement_subsection,
     sample_finding_table,
     severity_chip,
+    status_chip,
 )
 from .styles import FRAME_H, FRAME_W, MARGIN, PAGE_H, PAGE_W, Styles
 from .theme import build_theme
@@ -213,7 +219,7 @@ def build_pdf(
         bottomMargin=MARGIN,
         title=cfg.report.title,
         author=cfg.report.auditor,
-        subject="PCI DSS v4.0.1 compliance report",
+        subject="PCI DSS v4.0.1 supporting evidence",
         canvasmaker=_make_canvas_class(footer_left, footer_right),
     )
 
@@ -249,8 +255,43 @@ def build_pdf(
     return out_path
 
 
+def _cover_disclaimer(styles, theme) -> Table:
+    """Non-removable cover disclaimer: supporting evidence, not a QSA report."""
+    text = (
+        "This document is an Application Security Assessment Report, not an "
+        "official PCI DSS Compliance Report, and is not issued by a PCI SSC "
+        "Qualified Security Assessor (QSA). The assessment scope is limited "
+        "to application-layer security of web, mobile, API and container "
+        "artifacts using automated security scanning tools. Findings "
+        "address only selected PCI DSS v4.0.1 Requirements 6 and 11 and "
+        "serve as supporting evidence for the Customer's PCI DSS "
+        "assessment. Full PCI DSS compliance remains the sole "
+        "responsibility of the Customer and must be validated by the "
+        "Customer's QSA. PCI Requirement 11.3.2 external vulnerability "
+        "scanning must be performed by a PCI SSC Approved Scanning Vendor "
+        "(ASV) and is outside the scope of this assessment."
+    )
+    box = Table(
+        [[Paragraph(f"<b>DISCLAIMER</b><br/>{escape(text)}", styles.small)]],
+        colWidths=[FRAME_W],
+    )
+    box.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), theme.table_alt),
+                ("BOX", (0, 0), (-1, -1), 1, theme.primary),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    return box
+
+
 def _cover(data, cfg, styles, theme) -> list:
-    flowables = [Spacer(1, 18 * mm)]
+    flowables = [Spacer(1, 10 * mm)]
     if theme.logo_path:
         try:
             img = Image(theme.logo_path, width=45 * mm, height=45 * mm)
@@ -265,10 +306,10 @@ def _cover(data, cfg, styles, theme) -> list:
             Paragraph(escape(cfg.report.title), styles.cover_title),
             Paragraph(
                 f"{escape(cfg.report.company_name)}<br/>"
-                "PCI DSS v4.0.1 Compliance Report",
+                f"{escape(cfg.report.subtitle)}",
                 styles.cover_subtitle,
             ),
-            Spacer(1, 16 * mm),
+            Spacer(1, 8 * mm),
         ]
     )
     meta_rows = [
@@ -298,7 +339,9 @@ def _cover(data, cfg, styles, theme) -> list:
         )
     )
     flowables.append(meta_table)
-    flowables.append(Spacer(1, 10 * mm))
+    flowables.append(Spacer(1, 6 * mm))
+    flowables.append(_cover_disclaimer(styles, theme))
+    flowables.append(Spacer(1, 6 * mm))
 
     project_rows = [
         [
@@ -322,7 +365,7 @@ def _cover(data, cfg, styles, theme) -> list:
         )
     )
 
-    flowables.append(Spacer(1, 18 * mm))
+    flowables.append(Spacer(1, 8 * mm))
     banner = Table(
         [[Paragraph(
             f"<b>{escape(cfg.report.confidentiality.upper())}</b> — "
@@ -353,8 +396,11 @@ def _document_control(cfg, styles, theme) -> list:
     disclaimer = (
         "The findings in this report are supporting evidence and gap "
         "indications for the referenced PCI DSS v4.0.1 requirements. This "
-        "document is not a certification statement and does not constitute "
-        "an assessment by a Qualified Security Assessor (QSA). Requirement "
+        "document is an application security assessment report: it is not a "
+        "PCI DSS compliance report, is not a certification statement, and "
+        "does not constitute an assessment by a Qualified Security Assessor "
+        "(QSA). Full PCI DSS compliance is the sole responsibility of the "
+        "customer and must be validated by the customer's QSA. Requirement "
         "texts are paraphrased for readability; PCI SSC is the authoritative "
         "source for normative requirement language."
     )
@@ -400,6 +446,11 @@ def _document_control(cfg, styles, theme) -> list:
     ]
 
 
+def _count_phrase(n: int, singular: str, plural: str) -> str:
+    """'{n} {singular|plural}' — for counts in running text."""
+    return f"{n} {singular if n == 1 else plural}"
+
+
 def _executive_summary(data, cfg, styles, theme) -> list:
     project_names = ", ".join(p.display_name for p in data.projects)
     flowables = [
@@ -412,8 +463,50 @@ def _executive_summary(data, cfg, styles, theme) -> list:
             f"filters and are mapped to PCI DSS v4.0.1 requirements in Section 3.",
             styles.body_justify,
         ),
-        Paragraph("1.1 Findings by project", styles.h2),
+        Paragraph("1.1 PCI DSS requirements at a glance", styles.h2),
     ]
+    stats = data.requirement_stats
+    covered_stats = [s for s in stats.values() if s.covered]
+    gap = sum(1 for s in covered_stats if s.indicator == GAP_INDICATOR)
+    watch = sum(1 for s in covered_stats if s.indicator == WATCH_INDICATOR)
+    ok = sum(1 for s in covered_stats if s.indicator == OK_INDICATOR)
+    covered = data.totals["covered"]
+    not_covered = data.totals["not_covered"]
+    flowables.append(
+        Paragraph(
+            f"Of the {data.totals['requirements']} PCI DSS v4.0.1 requirements "
+            f"referenced by this report, {covered} are addressed with "
+            f"tool-based evidence — "
+            f"{_count_phrase(gap, 'shows gaps', 'show gaps')}, "
+            f"{_count_phrase(watch, 'is on watch', 'are on watch')} and "
+            f"{_count_phrase(ok, 'has no mapped findings', 'have no mapped findings')} — "
+            f"and {_count_phrase(not_covered, 'is outside', 'are outside')} "
+            f"the scope of tool-based evidence (see Section 3.2). Indicators "
+            f"reflect the presence of open findings in scope — they are gap "
+            f"indications, not a compliance verdict (Section 3).",
+            styles.body_justify,
+        )
+    )
+    header = ["Requirement", "Status", *[s.value for s in SEVERITY_ORDER]]
+    rows = [
+        [
+            req.requirement,
+            status_chip(stats[req.requirement].indicator, styles, theme),
+            *[str(stats[req.requirement].counts[sev]) for sev in SEVERITY_ORDER],
+        ]
+        for req in PCI_REQUIREMENTS
+    ]
+    flowables.append(
+        plain_table(
+            header,
+            rows,
+            styles,
+            col_widths=[26 * mm, 40 * mm] + [17 * mm] * len(SEVERITY_ORDER),
+            small=True,
+        )
+    )
+
+    flowables.append(Paragraph("1.2 Findings by project", styles.h2))
     header = ["Project", *[s.value for s in SEVERITY_ORDER], "Total"]
     rows = [
         [row["project"], row["CRITICAL"], row["HIGH"], row["MEDIUM"],
@@ -429,7 +522,7 @@ def _executive_summary(data, cfg, styles, theme) -> list:
         )
     )
 
-    flowables.append(Paragraph("1.2 Findings by scanner", styles.h2))
+    flowables.append(Paragraph("1.3 Findings by scanner", styles.h2))
     matrix_header = ["Scanner", *[s.value for s in SEVERITY_ORDER], "Total"]
     matrix_rows = [
         [
@@ -451,7 +544,7 @@ def _executive_summary(data, cfg, styles, theme) -> list:
     flowables.append(severity_bar_chart(data.scanner_matrix, theme, width=FRAME_W))
     flowables.append(Spacer(1, 4 * mm))
 
-    flowables.append(Paragraph("1.3 Findings excluded by filters", styles.h2))
+    flowables.append(Paragraph("1.4 Findings excluded by filters", styles.h2))
     excluded = data.filtered_out
     filter_rows = [
         ["Excluded by state filter", excluded.get("by_state", 0)],
@@ -470,7 +563,7 @@ def _executive_summary(data, cfg, styles, theme) -> list:
     )
 
     if data.top_findings:
-        flowables.append(Paragraph("1.4 Highest-severity findings", styles.h2))
+        flowables.append(Paragraph("1.5 Highest-severity findings", styles.h2))
         flowables.append(
             sample_finding_table(data.top_findings, styles, theme)
         )
@@ -577,6 +670,50 @@ def _methodology(data, cfg, styles, theme) -> list:
             "the CxOne SCA 'ignored' flag.",
             styles.small_italic,
         ),
+        Paragraph("2.4 Scope boundaries and exclusions", styles.h2),
+        Paragraph(
+            "This report is delivered as supporting evidence for the "
+            "customer's internal application go-live review and for review "
+            "by the customer's Qualified Security Assessor (QSA). Under PCI "
+            "SSC rules, only a QSA can issue a formal PCI DSS compliance "
+            "report; this document is not one. The areas below are outside "
+            "this assessment and must be evidenced by the customer through "
+            "other means.",
+            styles.body_justify,
+        ),
+        Paragraph(
+            "Mobile application code in scope is assessed through the same "
+            "requirements as other application code (6.2.x and 6.5.x); PCI "
+            "DSS v4.0.1 has no separate mobile-application requirement "
+            "number.",
+            styles.small_italic,
+        ),
+        plain_table(
+            ["PCI area outside this assessment", "Responsible party"],
+            [
+                ["Requirement 1 — Install and maintain network security controls", "Customer / QSA"],
+                ["Requirement 2 — Secure configuration of all system components", "Customer / QSA"],
+                ["Requirement 3 — Protect stored account data", "Customer / QSA"],
+                ["Requirement 4 — Protect cardholder data in transit", "Customer / QSA"],
+                ["Requirement 5 — Protect against malicious software", "Customer / QSA"],
+                ["Requirement 6.1 — Policies and procedures for secure software development", "Customer / QSA"],
+                ["Requirement 6.2.2 — Secure software engineering training records", "Customer / QSA"],
+                ["Requirement 6.4.3 — Payment-page script integrity monitoring", "Customer / QSA"],
+                ["Requirement 7 — Restrict access by business need-to-know", "Customer / QSA"],
+                ["Requirement 8 — Identify users and authenticate access (MFA)", "Customer / QSA"],
+                ["Requirement 9 — Restrict physical access to cardholder data", "Customer / QSA"],
+                ["Requirement 10 — Log and monitor all access to system components", "Customer / QSA"],
+                ["Requirement 11.1 / 11.2 — Wireless and network security testing", "Customer / QSA"],
+                ["Requirement 11.3.2 — External ASV vulnerability scans", "PCI SSC ASV (Customer)"],
+                ["Requirement 11.3.3 — Penetration testing", "Customer (independent tester)"],
+                ["Requirement 11.4 / 11.5 — Network security controls testing", "Customer / QSA"],
+                ["Requirement 11.6 — Change-and-tamper detection on payment pages", "Customer / QSA"],
+                ["Requirement 12 — Information security policies and programmes", "Customer / QSA"],
+            ],
+            styles,
+            col_widths=[125 * mm, 45 * mm],
+            small=True,
+        ),
         PageBreak(),
     ]
     return flowables
@@ -586,18 +723,51 @@ def _requirements_section(data, cfg, styles, theme) -> list:
     flowables = [
         Paragraph("3. PCI DSS v4.0.1 Requirements Mapping", styles.h1),
         Paragraph(
-            "Each requirement below lists the findings mapped to it, with "
-            "severity counts and a status indicator. Indicators reflect the "
-            "presence of open findings in scope — they are gap indications, "
-            "not pass/fail judgments. Requirement texts are paraphrased.",
+            "Each covered requirement below lists the findings mapped to "
+            "it, with severity counts and a status indicator. Indicators "
+            "reflect the presence of open findings in scope — they are gap "
+            "indications, not pass/fail judgments. Requirement texts are "
+            "paraphrased.",
             styles.body_justify,
         ),
+        Paragraph("3.1 Requirements covered by tool-based evidence", styles.h2),
     ]
     for req in PCI_REQUIREMENTS:
+        if not req.covered:
+            continue
         stat = data.requirement_stats[req.requirement]
         flowables.extend(
             requirement_subsection(stat, req.text, req.guidance, styles, theme)
         )
+
+    flowables.append(
+        Paragraph(
+            "3.2 Requirements outside the scope of tool-based evidence",
+            styles.h2,
+        )
+    )
+    flowables.append(
+        Paragraph(
+            "The requirements below cannot be evidenced by automated "
+            "application security scanning. They remain the responsibility "
+            "of the customer and are validated by the customer's QSA (or a "
+            "PCI SSC Approved Scanning Vendor where noted).",
+            styles.body_justify,
+        )
+    )
+    flowables.append(
+        plain_table(
+            ["Requirement", "Title", "Why out of scope", "Responsible party"],
+            [
+                [req.requirement, req.title, req.note, req.owner]
+                for req in PCI_REQUIREMENTS
+                if not req.covered
+            ],
+            styles,
+            col_widths=[20 * mm, 42 * mm, 62 * mm, 46 * mm],
+            small=True,
+        )
+    )
     flowables.append(PageBreak())
     return flowables
 
@@ -650,6 +820,11 @@ def _appendix_b(cfg, styles, theme) -> list:
                 ["Tool", TOOL_NAME],
                 ["Tool version", __version__],
                 ["Report standard", "PCI DSS v4.0.1"],
+                [
+                    "Report scope",
+                    "Selected Requirements 6 & 11 — supporting evidence, "
+                    "not a compliance report",
+                ],
                 ["Generated", cfg.report.prepared_date],
             ],
             styles,

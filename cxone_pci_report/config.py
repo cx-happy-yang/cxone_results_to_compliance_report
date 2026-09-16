@@ -18,6 +18,9 @@ class ConfigError(Exception):
 @dataclass
 class ReportConfigSection:
     title: str = ""
+    subtitle: str = (
+        "Supporting Evidence for PCI DSS v4.0.1 (Requirements 6 & 11)"
+    )
     company_name: str = ""
     auditor: str = ""
     prepared_date: str = ""
@@ -94,7 +97,7 @@ class ReportConfig:
 def _section_keys() -> dict[str, set[str]]:
     return {
         "report": {
-            "title", "company_name", "auditor", "prepared_date",
+            "title", "subtitle", "company_name", "auditor", "prepared_date",
             "assessment_period", "confidentiality", "logo_path", "language",
         },
         "output": {"pdf_path"},
@@ -210,6 +213,9 @@ def validate_config(
     ):
         if not required:
             errors.append(f"{label} is required.")
+
+    if not report.subtitle.strip():
+        errors.append("report.subtitle must not be empty.")
 
     if report.language not in VALID_LANGUAGES:
         errors.append(

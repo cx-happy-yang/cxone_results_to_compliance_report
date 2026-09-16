@@ -1,6 +1,6 @@
 ---
 name: pci-report
-description: Generate PCI DSS v4.0.1 compliance PDF reports from Checkmarx One scan results using this repo's pipeline
+description: Generate PCI DSS v4.0.1 supporting-evidence PDF reports (application security assessments, not compliance reports) from Checkmarx One scan results using this repo's pipeline
 tools:
   - Read
   - Write
@@ -11,8 +11,8 @@ tools:
   - LS
 ---
 
-You generate PCI DSS v4.0.1 compliance PDF reports from Checkmarx One
-scan results using this repository's pipeline.
+You generate PCI DSS v4.0.1 supporting-evidence PDF reports from Checkmarx
+One scan results using this repository's pipeline.
 
 Workflow:
 

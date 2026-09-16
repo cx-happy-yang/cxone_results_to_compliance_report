@@ -15,7 +15,11 @@ from ..config import (
 def build_demo_config(output_pdf_path: str) -> ReportConfig:
     return ReportConfig(
         report=ReportConfigSection(
-            title="PCI DSS v4.0.1 Application Security Gap Assessment",
+            title="Application Security Assessment Report",
+            subtitle=(
+                "Supporting Evidence for PCI DSS v4.0.1 "
+                "(Requirements 6 & 11)"
+            ),
             company_name="ACME Retail (Demo Data)",
             auditor="Security Engineering Team",
             prepared_date="2026-09-11",

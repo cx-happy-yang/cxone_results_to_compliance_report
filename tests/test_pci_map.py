@@ -24,20 +24,20 @@ class TestBuiltInRules:
         # query-name rule and CWE-89 rule both point at 6.5.1; deduped
         assert f.pci_requirements == ("6.5.1",)
 
-    def test_sca_log4shell_primary_6_5_6_and_6_3_3(self, sca_log4j):
+    def test_sca_log4shell_primary_6_5_6_and_6_3_2(self, sca_log4j):
         f = _mapped(from_sca(sca_log4j, **CTX))
         assert f.pci_primary == "6.5.6"
-        assert set(f.pci_requirements) == {"6.5.6", "6.3.3"}
-        # CWE-502 -> 6.5.6, log4shell CVE -> 6.5.6, sca-all -> 6.3.3
+        assert set(f.pci_requirements) == {"6.5.6", "6.3.2"}
+        # CWE-502 -> 6.5.6, log4shell CVE -> 6.5.6, sca-all -> 6.3.2
 
-    def test_sca_regular_cve_primary_6_3_3(self, sca_ignored):
+    def test_sca_regular_cve_primary_6_3_2(self, sca_ignored):
         item = dict(sca_ignored)
         item["isIgnored"] = False
         f = _mapped(from_sca(item, **CTX))
         assert f.pci_primary == "6.5.1"  # CWE-79 XSS rule (priority 10)
-        assert "6.3.3" in f.pci_requirements
+        assert "6.3.2" in f.pci_requirements
 
-    def test_sca_cve_without_cwe_mapping_falls_to_6_3_3(self):
+    def test_sca_cve_without_cwe_mapping_falls_to_6_3_2(self):
         item = {
             "id": "CVE-2024-99999",
             "cveName": "CVE-2024-99999",
@@ -47,9 +47,9 @@ class TestBuiltInRules:
             "cwe": None,
         }
         f = _mapped(from_sca(item, **CTX))
-        assert f.pci_primary == "6.3.3"
+        assert f.pci_primary == "6.3.2"
 
-    def test_kics_public_s3_maps_external(self):
+    def test_kics_public_s3_maps_11_3_1(self):
         f = from_kics(
             type("K", (), {
                 "kics_result_id": "r-1",
@@ -65,7 +65,7 @@ class TestBuiltInRules:
             **CTX,
         )
         f = _mapped(f)
-        assert f.pci_primary == "11.3.2"
+        assert f.pci_primary == "11.3.1"
 
     def test_kics_security_group_maps_internal(self, kics_open_port):
         f = _mapped(from_kics(kics_open_port, **CTX))
@@ -95,7 +95,7 @@ class TestBuiltInRules:
         }
         f = _mapped(from_sca(item, **CTX))
         assert f.pci_primary == "6.5.6"  # synthetic CVSS>=9 rule, priority 5
-        assert "6.3.3" in f.pci_requirements
+        assert "6.3.2" in f.pci_requirements
 
     def test_cwe_normalization_matches(self):
         f = Finding(

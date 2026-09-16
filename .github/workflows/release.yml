@@ -1,0 +1,74 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[build]"
+
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          expected="v$(python -c 'import cxone_pci_report; print(cxone_pci_report.__version__)')"
+          actual="${{ github.ref_name }}"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::Tag $actual does not match package version $expected. Bump __version__ in cxone_pci_report/__init__.py first."
+            exit 1
+          fi
+
+      - name: Build binary
+        run: python build_binaries.py
+
+      - name: Smoke test (demo report)
+        shell: bash
+        run: |
+          BIN=$(ls dist/cxone-pci-report-* | head -n 1)
+          "$BIN" --version
+          if "$BIN" --demo --output smoke.pdf 2>smoke.err; then
+            if grep -q "logo asset not found" smoke.err; then
+              echo "::error::Bundled logo asset missing (check --add-data)."
+              cat smoke.err
+              exit 1
+            fi
+          else
+            cat smoke.err
+            exit 1
+          fi
+          test -f smoke.pdf && echo "Demo report generated OK."
+
+      - name: Attach binary to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/cxone-pci-report-*
+
+      - name: Upload build artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cxone-pci-report-${{ matrix.os }}
+          path: dist/cxone-pci-report-*

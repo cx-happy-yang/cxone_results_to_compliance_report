@@ -2,8 +2,10 @@
 
 Consolidate Checkmarx One scan results from multiple scanners — **SAST**,
 **SCA**, **IaC Security (KICS)** and **API Security** — for the projects you
-choose, and generate a customized **PCI DSS v4.0.1 compliance PDF report**
-(English) with [reportlab](https://www.reportlab.com/).
+choose, and generate a customized **application security assessment PDF
+report** that maps findings to **PCI DSS v4.0.1** requirements as
+supporting evidence (English) with
+[reportlab](https://www.reportlab.com/).
 
 The report frames findings as **gap evidence** for PCI requirements, not as
 a compliance certification. Requirement texts are paraphrased; PCI SSC is
@@ -20,17 +22,22 @@ the authoritative source.
   floor, SCA "ignored" flag, and per-project dedupe by similarity id.
   Everything excluded is counted and shown in the report.
 - Rule engine maps findings to PCI DSS v4.0.1 requirements
-  (6.2.4, 6.3.1, 6.3.3, 6.4.1, 6.4.2, 6.5.1–6.5.6, 11.3.1, 11.3.2) using
+  (6.2.1–6.2.4, 6.3.1–6.3.3, 6.4.1–6.4.3, 6.5.1–6.5.6, 11.3.1–11.3.3) using
   query-name/CWE/CVE/package patterns; CVSS ≥ 9.0 findings are escalated to
   6.5.6; unmatched findings fall back to 6.3.1. A JSON overlay file can add,
-  replace or remove rules without touching code.
+  replace or remove rules without touching code. Requirements 6.2.2
+  (training), 6.4.3 (payment-page scripts), 11.3.2 (ASV scans) and 11.3.3
+  (penetration testing) cannot be evidenced by scan tools and are listed in
+  the report as outside tool-based evidence.
 - Customizable PDF: company/logo/colors, cover page, document control,
-  auto-generated table of contents, executive summary with charts,
-  methodology (scan inventory + filters), per-requirement mapping with
-  GAPS IDENTIFIED / WATCH / NO FINDINGS indicators, detailed findings
-  appendix, and a tool-information page. The Checkmarx corporate logo is
-  drawn at the top of every page; set `report.logo_path` to show your own
-  logo centered on the cover.
+  auto-generated table of contents, executive summary with charts and a
+  per-requirement status summary (GAPS IDENTIFIED / WATCH / NO FINDINGS /
+  NOT COVERED — gap indications, not a compliance verdict), methodology
+  (scan inventory + filters + scope exclusions), per-requirement mapping
+  with the same indicators, detailed
+  findings appendix, and a tool-information page. The Checkmarx corporate
+  logo is drawn at the top of every page; set `report.logo_path` to show
+  your own logo centered on the cover.
 - `--demo` mode generates a realistic report from bundled synthetic data —
   no API access needed. Great for testing layout changes or showing the
   format to auditors.
@@ -45,6 +52,40 @@ python -m venv .venv
 Requires Python ≥ 3.14. Fonts: the report uses Microsoft YaHei when
 available (Latin + CJK), otherwise Arial, otherwise reportlab's bundled
 Vera — no extra font packages needed.
+
+### Prebuilt binaries
+
+Self-contained executables (no Python required) are attached to every
+[GitHub Release](https://github.com/cx-happy-yang/cxone_results_to_compliance_report/releases):
+
+| Platform                | Binary |
+| ----------------------- | ------ |
+| Windows (x64)           | `cxone-pci-report-<version>-windows-x64.exe` |
+| macOS (Apple Silicon)   | `cxone-pci-report-<version>-macos-arm64` |
+| Linux (x64)             | `cxone-pci-report-<version>-linux-x64` |
+
+Platform notes for first run: Windows may show SmartScreen on the unsigned
+exe (choose "More info → Run anyway"); macOS downloads need
+`xattr -dr com.apple.quarantine <binary>`; on Linux `chmod +x <binary>`
+first. Verify a download with `<binary> --demo --output smoke.pdf`
+(offline, no API access).
+
+To build one yourself (from the repo root):
+
+```powershell
+.venv\Scripts\pip install ".[build]"
+.venv\Scripts\python build_binaries.py   # binary lands in dist\
+```
+
+Cutting a release: bump `__version__` in `cxone_pci_report/__init__.py`
+(the package and `pyproject.toml` both read it from there), commit, then
+tag and push — the `release` workflow builds all three binaries, checks
+that the tag matches the version, and attaches them to the release:
+
+```powershell
+git tag v0.1.1
+git push origin v0.1.1
+```
 
 ## Authentication (delegated to the SDK)
 

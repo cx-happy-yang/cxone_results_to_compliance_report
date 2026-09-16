@@ -150,16 +150,15 @@ BUILT_IN_RULES: tuple[MappingRule, ...] = (
     # ---------------------------------------------------------------- 6.4.2
     MappingRule("kics-waf", "6.4.2", KICS, "kics_query_name_regex",
                 r"(?i)(waf|web application firewall)", 20),
-    # ---------------------------------------------------------------- 11.3.2
-    MappingRule("kics-public-s3", "11.3.2", KICS, "kics_query_name_regex",
-                r"(?i)s3 bucket.*(public|acl|policy)|cloudfront.*insecure|public.*(bucket|storage|endpoint)", 10),
     # ---------------------------------------------------------------- 11.3.1
+    MappingRule("kics-public-s3", "11.3.1", KICS, "kics_query_name_regex",
+                r"(?i)s3 bucket.*(public|acl|policy)|cloudfront.*insecure|public.*(bucket|storage|endpoint)", 10),
     MappingRule("kics-iam", "11.3.1", KICS, "kics_query_name_regex",
                 r"(?i)iam.*(policy|user|role)|security group.*(open|wide)|open.*port|unrestricted.*ingress|privileged (container|pod)", 10),
     MappingRule("kics-k8s", "11.3.1", KICS, "kics_query_name_regex",
                 r"(?i)(kubernetes|container|dockerfile|terraform|cloudformation).*(misconfig|insecure|privilege)", 20),
-    # ---------------------------------------------------------------- 6.3.3
-    MappingRule("sca-all", "6.3.3", SCA, "cve_regex",
+    # ---------------------------------------------------------------- 6.3.2
+    MappingRule("sca-all", "6.3.2", SCA, "cve_regex",
                 r"CVE-\d{4}-\d{4,7}", 30),
 )
 

@@ -14,6 +14,7 @@ from reportlab.platypus import (
 
 from ..aggregate import (
     GAP_INDICATOR,
+    NOT_COVERED_INDICATOR,
     OK_INDICATOR,
     RequirementStat,
     WATCH_INDICATOR,
@@ -64,6 +65,7 @@ def status_chip(text: str, styles: Styles, theme: ReportTheme) -> Table:
         GAP_INDICATOR: theme.gap,
         WATCH_INDICATOR: theme.watch,
         OK_INDICATOR: theme.ok,
+        NOT_COVERED_INDICATOR: colors.HexColor("#6B7280"),
     }.get(text, theme.primary)
     para = Paragraph(f"<b>{_esc(text)}</b>", styles.chip)
     table = Table([[para]], colWidths=[46 * mm])

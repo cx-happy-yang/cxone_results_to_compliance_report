@@ -26,7 +26,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         prog=TOOL_NAME,
         description=(
             "Consolidate Checkmarx One scan results (SAST, SCA, IaC/KICS, "
-            "API Security) into a PCI DSS v4.0.1 compliance PDF report."
+            "API Security) into a PCI DSS v4.0.1 supporting-evidence PDF "
+            "report."
         ),
     )
     parser.add_argument(

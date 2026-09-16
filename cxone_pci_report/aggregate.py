@@ -9,6 +9,7 @@ from .pci_requirements import PCI_REQUIREMENTS
 GAP_INDICATOR = "GAPS IDENTIFIED"
 WATCH_INDICATOR = "WATCH"
 OK_INDICATOR = "NO FINDINGS"
+NOT_COVERED_INDICATOR = "NOT COVERED"
 
 
 @dataclass
@@ -18,6 +19,7 @@ class RequirementStat:
     counts: dict[Severity, int] = field(default_factory=dict)
     total: int = 0
     indicator: str = OK_INDICATOR
+    covered: bool = True
     sample_findings: list[Finding] = field(default_factory=list)
 
 
@@ -111,12 +113,18 @@ def build_report_data(
         for finding in findings:
             counts[finding.severity] += 1
         ordered = _sort_findings(findings)
+        indicator = (
+            NOT_COVERED_INDICATOR
+            if not req.covered
+            else gap_indicator(counts, cfg)
+        )
         requirement_stats[req.requirement] = RequirementStat(
             requirement=req.requirement,
             title=req.title,
             counts=counts,
             total=len(findings),
-            indicator=gap_indicator(counts, cfg),
+            indicator=indicator,
+            covered=req.covered,
             sample_findings=ordered[:3],
         )
         findings_by_requirement[req.requirement] = ordered
@@ -139,6 +147,8 @@ def build_report_data(
         "kept": len(all_findings),
         "projects": len(projects),
         "requirements": len(PCI_REQUIREMENTS),
+        "covered": sum(1 for req in PCI_REQUIREMENTS if req.covered),
+        "not_covered": sum(1 for req in PCI_REQUIREMENTS if not req.covered),
     }
     top_findings = _sort_findings(all_findings)[:10]
 
